@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weather Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #83a4d4, #b6fbff);
+      text-align: center;
+      padding: 50px;
+      color: #333;
+      margin: 0;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    input {
+      padding: 10px;
+      width: 250px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      background-color: #007BFF;
+      color: white;
+      cursor: pointer;
+    }
+    .weather, .forecast {
+      margin-top: 30px;
+      font-size: 18px;
+    }
+    .forecast-cards {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .card {
+      background: #ffffffcc;
+      padding: 15px;
+      border-radius: 10px;
+      width: 120px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .card img {
+      width: 50px;
+      height: 50px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌤️ Weather Dashboard</h1>
+  <input type="text" id="locationInput" placeholder="Enter city, ZIP code, or locality" />
+  <button onclick="getWeather()">Search Weather</button>
+  <button onclick="getLocationWeather()">📍 Use My Location</button>
+  <div class="weather" id="weatherResult"></div>
+  <div class="forecast" id="forecastResult"></div>
+ 
+  <script>
+    const apiKey = 'c7e10eef4c2a0d48e0b4ccb3415e02b3'; // Replace with your OpenWeatherMap API key
+ 
+    async function getWeather(query = null) {
+      const location = query || document.getElementById('locationInput').value;
+      if (!location) {
+        alert("Please enter a city, ZIP code or locality.");
+        return;
+      }
+ 
+      const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}&units=metric`;
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${location}&appid=${apiKey}&units=metric`;
+ 
+      try {
+        const [currentRes, forecastRes] = await Promise.all([
+          fetch(currentUrl),
+          fetch(forecastUrl)
+        ]);
+ 
+        const currentData = await currentRes.json();
+        const forecastData = await forecastRes.json();
+ 
+        if (currentData.cod === 200 && forecastData.cod === "200") {
+          showWeather(currentData);
+          showForecast(forecastData);
+        } else {
+          document.getElementById('weatherResult').innerHTML = `<p>Location not found.</p>`;
+          document.getElementById('forecastResult').innerHTML = '';
+        }
+      } catch (error) {
+        document.getElementById('weatherResult').innerHTML = `<p>Error fetching data.</p>`;
+        document.getElementById('forecastResult').innerHTML = '';
+      }
+    }
+ 
+    function showWeather(data) {
+      const weatherHTML = `
+        <h2>${data.name}, ${data.sys.country}</h2>
+        <p><strong>Temperature:</strong> ${data.main.temp}°C</p>
+        <p><strong>Humidity:</strong> ${data.main.humidity}%</p>
+        <p><strong>Condition:</strong> ${data.weather[0].description}</p>
+        <img src="https://openweathermap.org/img/wnather[0].icon}@2x.png
+      `;
+      document.getElementById('weatherResult').innerHTML = weatherHTML;
+    }
+ 
+    function showForecast(data) {
+     const dailyForecasts = data.list.filter(item => item.dt_txt.includes("12:00:00")).slice(0, 5);
+      const forecastHTML = dailyForecasts.map(item => {
+          const date = new Date(item.dt_txt);
+          return `
+            <div class="card">
+              <p><strong>${date.toDateString()}</strong></p>
+              <img src="https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png" alt<p>${item.main.temp}°C</p>
+              <p>${item.weather[0].main}</p>
+            </div>
+          `;
+        }).join("");
+ 
+      document.getElementById('forecastResult').innerHTML = `
+        <h3>5-Day Forecast</h3>
+        <div class="forecast-cards">${forecastHTML}</div>
+      `;
+    }
+ 
+    function getLocationWeather() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+ 
+          const currentUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+          const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+ 
+          try {
+            const [currentRes, forecastRes] = await Promise.all([
+              fetch(currentUrl),
+              fetch(forecastUrl)
+            ]);
+ 
+            const currentData = await currentRes.json();
+            const forecastData = await forecastRes.json();
+ 
+            if (currentData.cod === 200 && forecastData.cod === "200") {
+              showWeather(currentData);
+              showForecast(forecastData);
+            }
+          } catch (error) {
+            document.getElementById('weatherResult').innerHTML = `<p>Error fetching location weather.</p>`;
+            document.getElementById('forecastResult').innerHTML = '';
+          }
+        }, () => {
+          alert("Location access denied or unavailable.");
+        });
+      } else {
+        alert("Geolocation is not supported by your browser.");
+      }
+    }
+  </script>
+</body>
+</html>
