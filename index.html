@@ -13,6 +13,10 @@
       color: #333;
       margin: 0;
     }
+    body.dark {
+      background: linear-gradient(to right, #2c3e50, #4ca1af);
+      color: #f0f0f0;
+    }
     h1 {
       margin-bottom: 20px;
     }
@@ -32,7 +36,7 @@
       color: white;
       cursor: pointer;
     }
-    .weather, .forecast {
+    .weather, .forecast, .aqi {
       margin-top: 30px;
       font-size: 18px;
     }
@@ -54,25 +58,50 @@
       width: 50px;
       height: 50px;
     }
+    .theme-toggle {
+      margin-top: 20px;
+      cursor: pointer;
+      background: #444;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
   <h1>🌤️ Weather Dashboard</h1>
   <input type="text" id="locationInput" placeholder="Enter city, ZIP code, or locality" />
+  <input type="date" id="dateInput" />
+  <br/>
   <button onclick="getWeather()">Search Weather</button>
   <button onclick="getLocationWeather()">📍 Use My Location</button>
+  <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+  <button onclick="getHourlyForecast()">Get Hourly Forecast</button>
   <div class="weather" id="weatherResult"></div>
   <div class="forecast" id="forecastResult"></div>
+  <div class="aqi" id="aqiResult"></div>
+  <div id="hourlyForecastResult"></div>
+  
  
   <script>
-    const apiKey = 'c7e10eef4c2a0d48e0b4ccb3415e02b3'; // Replace with your OpenWeatherMap API key
+    const apiKey = 'c7e10eef4c2a0d48e0b4ccb3415e02b3';
  
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+
     async function getWeather(query = null) {
-      const location = query || document.getElementById('locationInput').value;
-      if (!location) {
+       let location = query || document.getElementById('locationInput').value.trim();
+       
+       if (!location) {
         alert("Please enter a city, ZIP code or locality.");
         return;
       }
+
+      if (!location.includes(',')) {
+    location += ',IN';
+      } 
  
       const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}&units=metric`;
       const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${location}&appid=${apiKey}&units=metric`;
@@ -89,6 +118,7 @@
         if (currentData.cod === 200 && forecastData.cod === "200") {
           showWeather(currentData);
           showForecast(forecastData);
+          getAirQuality(currentData.coord.lat, currentData.coord.lon);
         } else {
           document.getElementById('weatherResult').innerHTML = `<p>Location not found.</p>`;
           document.getElementById('forecastResult').innerHTML = '';
@@ -104,8 +134,9 @@
         <h2>${data.name}, ${data.sys.country}</h2>
         <p><strong>Temperature:</strong> ${data.main.temp}°C</p>
         <p><strong>Humidity:</strong> ${data.main.humidity}%</p>
+        <p><strong>Wind Speed:</strong> ${data.wind.speed} mph</p>
         <p><strong>Condition:</strong> ${data.weather[0].description}</p>
-        <img src="https://openweathermap.org/img/wnather[0].icon}@2x.png
+        <img src="https://openweathermap.org/img/wnather[0].icon}@2x.png"
       `;
       document.getElementById('weatherResult').innerHTML = weatherHTML;
     }
@@ -127,6 +158,56 @@
         <h3>5-Day Forecast</h3>
         <div class="forecast-cards">${forecastHTML}</div>
       `;
+    }
+
+    async function getHourlyForecast() {
+      const location = document.getElementById('locationInput').value;
+      const selectedDate = document.getElementById('dateInput').value;
+      if (!location || !selectedDate) return alert("Enter location and select a date.");
+
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${location}&appid=${apiKey}&units=metric`;
+
+      try {
+        const res = await fetch(forecastUrl);
+        const data = await res.json();
+        const hourly = data.list.filter(item => item.dt_txt.startsWith(selectedDate));
+        const html = hourly.map(item => {
+          const time = item.dt_txt.split(" ")[1];
+          return `
+            <div class="card">
+              <p><strong>${time}</strong></p>
+              <img src="https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png" alt<p>${item.main.temp}°C</p>
+              <p>${item.weather[0].description}</p>
+            </div>
+          `;
+        }).join("");
+        document.getElementById('hourlyForecastResult').innerHTML = `<h3>Hourly Forecast for ${selectedDate}</h3><div class="forecast-cards">${html}</div>`;
+      } catch (error) {
+        document.getElementById('hourlyForecastResult').innerHTML = `<p>Error fetching hourly forecast.</p>`;
+      }
+    }
+
+   async function getAirQuality(lat, lon) {
+      const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+      try {
+        const res = await fetch(aqiUrl);
+        const data = await res.json();
+        const aqi = data.list[0].main.aqi;
+        const components = data.list[0].components;
+        const aqiLevels = ["Good", "Fair", "Moderate", "Poor", "Very Poor"];
+        const aqiHTML = `
+          <h3>Air Quality Index</h3>
+          <p><strong>AQI:</strong> ${aqi} (${aqiLevels[aqi - 1]})</p>
+          <p><strong>PM2.5:</strong> ${components.pm2_5} µg/m³</p>
+          <p><strong>PM10:</strong> ${components.pm10} µg/m³</p>
+          <p><strong>CO:</strong> ${components.co} µg/m³</p>
+          <p><strong>NO₂:</strong> ${components.no2} µg/m³</p>
+          <p><strong>O₃:</strong> ${components.o3} µg/m³</p>
+        `;
+        document.getElementById('aqiResult').innerHTML = aqiHTML;
+      } catch (error) {
+        document.getElementById('aqiResult').innerHTML = `<p>Error fetching AQI data.</p>`;
+      }
     }
  
     function getLocationWeather() {
